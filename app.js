@@ -18,7 +18,7 @@ function stats(){
     else if(s==='learning') learning++;
     else news++;
   });
-  const fullCount = WORDS.filter(w=>w.meaning && w.meaning.length>0).length;
+  const fullCount = WORDS.filter(w=>w.phonetic && w.example && w.exampleCn && w.meaning).length;
   return {mastered, learning, news, total:WORDS.length,
     fullCount,
     percent: Math.round(mastered/WORDS.length*100)};
@@ -52,7 +52,7 @@ function renderHome(filterTopic='all'){
   <div class="topbar">
     <div>
       <div class="title"><span class="logo">🌿</span>百词斩 KET</div>
-      <div class="sub">2025官方词汇表 · ${WORDS.length}词 · 全部有中文释义</div>
+      <div class="sub">2025官方词汇表 · ${WORDS.length}词 · ${s.fullCount}词有完整释义</div>
     </div>
     <div style="font-size:28px;cursor:pointer" onclick="window.__app.showList()">📚</div>
   </div>
