@@ -97,7 +97,7 @@ function stats(){
     else if(st==='learning') learning++;
     else news++;
   });
-  const fullCount = WORDS.filter(w=>w.phonetic && w.example && w.exampleCn && w.meaning).length;
+  const fullCount = WORDS.filter(w=>w.meaning && w.meaning.length>0).length;
   const plan = getTodayPlan();
   const wrongCount = WORDS.filter(w => {
     const p = progress[w.word];
