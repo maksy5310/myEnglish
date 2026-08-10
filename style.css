@@ -74,7 +74,7 @@ body{
 .mode-card.m4{border-color:#9B6BFF;} .mode-card.m4 .name{color:#9B6BFF;}
 
 /* 主题筛选 */
-.topic-bar{display:flex;gap:8px;overflow-x:auto;padding:6px 14px 10px;-webkit-overflow-scrolling:touch;}
+.topic-bar{display:flex;gap:8px;overflow-x:auto;padding:6px 0 10px;-webkit-overflow-scrolling:touch;}
 .topic-bar::-webkit-scrollbar{display:none;}
 .topic-chip{
   flex-shrink:0;
@@ -88,28 +88,116 @@ body{
 }
 .topic-chip.active{background:var(--green);color:#fff;}
 
-/* 单词列表 */
-.word-list{padding:0 14px;}
-.word-item{
+/* 主题分类卡片 */
+.topic-card-list{padding:0 14px;}
+.topic-card{
   background:var(--card);
-  border-radius:12px;
-  padding:14px;
+  border-radius:14px;
+  padding:14px 16px;
   margin-bottom:10px;
   box-shadow:var(--shadow);
   display:flex;align-items:center;gap:12px;
   cursor:pointer;
   transition:transform .12s;
 }
+.topic-card:active{transform:scale(.98);}
+.topic-card.all-card{border-left:4px solid var(--green);}
+.topic-card .tc-info{flex:1;min-width:0;}
+.topic-card .tc-name{font-size:15px;font-weight:700;}
+.topic-card .tc-stats{font-size:12px;color:var(--text-sub);margin-top:2px;}
+.topic-card .tc-bar{height:5px;background:var(--bg);border-radius:3px;margin-top:6px;overflow:hidden;}
+.topic-card .tc-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--green-dark));border-radius:3px;transition:width .3s;}
+.topic-card .tc-arrow{font-size:22px;color:var(--text-sub);flex-shrink:0;}
+
+/* 单词列表 */
+.word-list{padding:0 14px;}
+.word-item{
+  background:var(--card);
+  border-radius:12px;
+  padding:14px;
+  margin-bottom:8px;
+  box-shadow:var(--shadow);
+  display:flex;align-items:center;gap:12px;
+  cursor:pointer;
+  transition:transform .12s;
+}
 .word-item:active{transform:scale(.98);}
-.word-item .emoji{font-size:30px;flex-shrink:0;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:var(--green-light);border-radius:12px;}
+.word-item .emoji{font-size:28px;flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:var(--green-light);border-radius:12px;}
 .word-item .info{flex:1;min-width:0;}
 .word-item .w{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .word-item .w .ph{font-size:12px;color:var(--text-sub);font-weight:400;}
 .word-item .m{font-size:13px;color:var(--text-sub);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.word-item .status{font-size:11px;padding:3px 8px;border-radius:10px;flex-shrink:0;}
+.word-item .status{font-size:10px;padding:3px 8px;border-radius:10px;flex-shrink:0;}
 .status.new{background:#F0F0F0;color:#999;}
 .status.learning{background:#FFF4E6;color:var(--orange);}
 .status.mastered{background:var(--green-light);color:var(--green-dark);}
+
+/* ===== 独立单词列表页 ===== */
+.list-page{min-height:100vh;display:flex;flex-direction:column;}
+.list-header{
+  background:#fff;
+  padding:12px 16px;
+  padding-top:calc(12px + env(safe-area-inset-top));
+  box-shadow:0 1px 6px rgba(0,0,0,.04);
+  position:sticky;top:0;z-index:10;
+}
+.list-header .lh-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.list-header .back{font-size:26px;cursor:pointer;color:var(--text-sub);width:30px;line-height:1;}
+.list-header .lh-title{flex:1;font-size:17px;font-weight:700;}
+.list-header .lh-count{font-size:12px;color:var(--text-sub);}
+.search-box{
+  display:flex;align-items:center;gap:8px;
+  background:var(--bg);
+  border-radius:12px;
+  padding:8px 14px;
+  margin-bottom:10px;
+}
+.search-box .search-ic{font-size:14px;opacity:.5;}
+.search-box input{
+  flex:1;border:none;background:transparent;outline:none;
+  font-size:14px;color:var(--text);
+}
+
+.list-body{flex:1;position:relative;display:flex;}
+/* 字母索引侧边栏 */
+.letter-index{
+  position:fixed;right:4px;top:50%;transform:translateY(-50%);
+  z-index:20;
+  display:flex;flex-direction:column;align-items:center;
+  background:rgba(255,255,255,.85);
+  border-radius:16px;padding:4px 2px;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+  backdrop-filter:blur(4px);
+  max-height:60vh;overflow-y:auto;
+}
+.letter-index::-webkit-scrollbar{display:none;}
+.letter-index .li-item{
+  font-size:10px;font-weight:700;color:var(--green);
+  padding:2px 6px;cursor:pointer;line-height:1.3;
+  transition:all .15s;
+}
+.letter-index .li-item:active{transform:scale(1.3);color:var(--green-dark);}
+
+.word-groups{flex:1;padding:0 14px 20px;}
+.letter-group{margin-bottom:6px;}
+.letter-group .lg-title{
+  font-size:14px;font-weight:800;color:var(--green-dark);
+  padding:8px 4px 6px;
+  display:flex;align-items:center;gap:8px;
+  cursor:pointer;
+  position:sticky;top:0;
+  background:var(--bg);
+  z-index:5;
+}
+.letter-group .lg-title .lg-count{
+  font-size:11px;font-weight:400;color:var(--text-sub);
+  background:var(--card);padding:1px 8px;border-radius:8px;
+}
+.letter-group .lg-title::before{content:'';width:3px;height:14px;background:var(--green);border-radius:2px;}
+.letter-group.collapsed .lg-words{display:none;}
+.letter-group.flash{animation:flash .6s;}
+@keyframes flash{0%,100%{background:transparent;}30%{background:var(--green-light);}}
+.letter-group .lg-words{padding-top:2px;}
 
 /* ===== 学习模式页面 ===== */
 .study-page{min-height:100vh;display:flex;flex-direction:column;}

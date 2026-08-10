@@ -83,16 +83,34 @@ function toast(msg){
 }
 
 // ===== 首页 =====
-function renderHome(filterTopic='all'){
+let currentView = 'home'; // 'home' | 'list'
+let currentTopic = 'all';
+
+function renderHome(){
+  currentView = 'home';
   const s = stats();
-  const topics = ['all', ...Array.from(new Set(WORDS.map(w=>w.topic)))];
+  const topics = Array.from(new Set(WORDS.map(w=>w.topic)));
+  // 每个主题的统计
+  const topicCards = topics.map(t=>{
+    const tw = WORDS.filter(w=>w.topic===t);
+    const mastered = tw.filter(w=>(progress[w.word]||'new')==='mastered').length;
+    const pct = tw.length ? Math.round(mastered/tw.length*100) : 0;
+    return `<div class="topic-card" onclick="window.__app.showWordList('${t}')">
+      <div class="tc-info">
+        <div class="tc-name">${t}</div>
+        <div class="tc-stats">${mastered}/${tw.length} 已掌握</div>
+        <div class="tc-bar"><div class="tc-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="tc-arrow">›</div>
+    </div>`;
+  }).join('');
+
   let html = `
   <div class="topbar">
     <div>
       <div class="title"><span class="logo">🌿</span>百词斩 KET</div>
       <div class="sub">2025官方词汇表 · ${WORDS.length}词 · ${s.fullCount}词有完整释义</div>
     </div>
-    <div style="font-size:28px;cursor:pointer" onclick="window.__app.showList()">📚</div>
   </div>
 
   <div class="overview">
@@ -121,33 +139,148 @@ function renderHome(filterTopic='all'){
     </div>
   </div>
 
-  <div class="section-title">📋 单词列表</div>
-  <div class="topic-bar" id="topicBar">
-    ${topics.map(t=>`<div class="topic-chip ${t===filterTopic?'active':''}" onclick="window.__app.filterTopic('${t}')">${t==='all'?'全部':t}</div>`).join('')}
+  <div class="section-title">📋 单词分类</div>
+  <div class="topic-card-list">
+    <div class="topic-card all-card" onclick="window.__app.showWordList('all')">
+      <div class="tc-info">
+        <div class="tc-name">📖 全部单词</div>
+        <div class="tc-stats">${s.mastered}/${WORDS.length} 已掌握 · ${s.percent}%</div>
+        <div class="tc-bar"><div class="tc-fill" style="width:${s.percent}%"></div></div>
+      </div>
+      <div class="tc-arrow">›</div>
+    </div>
+    ${topicCards}
   </div>
-  <div class="word-list" id="wordList"></div>
   `;
   app.innerHTML = html;
-  renderWordList(filterTopic);
 }
 
-function renderWordList(filterTopic){
-  const list = document.getElementById('wordList');
-  const filtered = filterTopic==='all' ? WORDS : WORDS.filter(w=>w.topic===filterTopic);
-  if(!filtered.length){ list.innerHTML='<div class="empty">暂无单词</div>'; return; }
-  list.innerHTML = filtered.map(w=>{
+// ===== 独立单词列表页（字母索引分组 + 搜索）=====
+function showWordList(topic){
+  currentView = 'list';
+  currentTopic = topic;
+  const filtered = topic==='all' ? WORDS.slice() : WORDS.filter(w=>w.topic===topic);
+  const groups = groupByLetter(filtered);
+  const letters = Object.keys(groups).sort((a,b)=>{
+    if(a==='#') return 1;
+    if(b==='#') return -1;
+    return a.localeCompare(b);
+  });
+
+  const topics = ['all', ...Array.from(new Set(WORDS.map(w=>w.topic)))];
+  let html = `
+  <div class="list-page">
+    <div class="list-header">
+      <div class="lh-top">
+        <div class="back" onclick="window.__app.renderHome()">‹</div>
+        <div class="lh-title">${topic==='all'?'全部单词':topic}</div>
+        <div class="lh-count">${filtered.length}词</div>
+      </div>
+      <div class="search-box">
+        <span class="search-ic">🔍</span>
+        <input type="text" id="searchInput" placeholder="搜索单词或释义..." oninput="window.__app.searchWords(this.value)">
+      </div>
+      <div class="topic-bar">
+        ${topics.map(t=>`<div class="topic-chip ${t===topic?'active':''}" onclick="window.__app.showWordList('${t}')">${t==='all'?'全部':t}</div>`).join('')}
+      </div>
+    </div>
+    <div class="list-body" id="listBody">
+      <div class="letter-index" id="letterIndex">
+        ${letters.map(l=>`<div class="li-item" onclick="window.__app.scrollToLetter('${l}')">${l}</div>`).join('')}
+      </div>
+      <div class="word-groups" id="wordGroups">
+        ${letters.map(l=>`
+          <div class="letter-group" id="letter-${l}">
+            <div class="lg-title" onclick="window.__app.toggleGroup('${l}')">${l} <span class="lg-count">${groups[l].length}</span></div>
+            <div class="lg-words">
+              ${groups[l].map(w=>{
+                const st = progress[w.word] || 'new';
+                const stTxt = st==='new'?'未学':st==='learning'?'学习中':'已掌握';
+                const meanTxt = w.meaning ? `${w.pos} ${w.meaning}` : `${w.pos}`;
+                return `<div class="word-item" onclick="window.__app.showDetail('${w.word}')">
+                  <div class="emoji">${w.emoji}</div>
+                  <div class="info">
+                    <div class="w">${w.word} <span class="ph">${w.phonetic||''}</span></div>
+                    <div class="m">${meanTxt}</div>
+                  </div>
+                  <div class="status ${st}">${stTxt}</div>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  </div>
+  `;
+  app.innerHTML = html;
+}
+
+// 按字母分组
+function groupByLetter(words){
+  const groups = {};
+  words.forEach(w=>{
+    let letter = w.word.charAt(0).toUpperCase();
+    if(!/[A-Z]/.test(letter)) letter = '#';
+    if(!groups[letter]) groups[letter] = [];
+    groups[letter].push(w);
+  });
+  // 每组内按字母排序
+  Object.keys(groups).forEach(k=>{
+    groups[k].sort((a,b)=>a.word.toLowerCase().localeCompare(b.word.toLowerCase()));
+  });
+  return groups;
+}
+
+// 搜索
+function searchWords(q){
+  q = q.trim().toLowerCase();
+  const container = document.getElementById('wordGroups');
+  const indexBar = document.getElementById('letterIndex');
+  if(!q){
+    showWordList(currentTopic);
+    return;
+  }
+  // 隐藏字母索引
+  if(indexBar) indexBar.style.display = 'none';
+  const filtered = (currentTopic==='all'?WORDS:WORDS.filter(w=>w.topic===currentTopic))
+    .filter(w => w.word.toLowerCase().includes(q) || (w.meaning&&w.meaning.toLowerCase().includes(q)));
+  if(!filtered.length){
+    container.innerHTML = '<div class="empty">未找到匹配的单词</div>';
+    return;
+  }
+  container.innerHTML = filtered.map(w=>{
     const st = progress[w.word] || 'new';
     const stTxt = st==='new'?'未学':st==='learning'?'学习中':'已掌握';
-    const meanTxt = w.meaning ? `${w.pos} ${w.meaning}` : `${w.pos} · 待补充释义`;
+    const meanTxt = w.meaning ? `${w.pos} ${w.meaning}` : `${w.pos}`;
     return `<div class="word-item" onclick="window.__app.showDetail('${w.word}')">
       <div class="emoji">${w.emoji}</div>
       <div class="info">
-        <div class="w">${w.word} <span class="ph">${w.phonetic}</span></div>
+        <div class="w">${w.word} <span class="ph">${w.phonetic||''}</span></div>
         <div class="m">${meanTxt}</div>
       </div>
       <div class="status ${st}">${stTxt}</div>
     </div>`;
   }).join('');
+}
+
+// 跳转到字母分组
+function scrollToLetter(letter){
+  const el = document.getElementById('letter-'+letter);
+  if(el){
+    const header = document.querySelector('.list-header');
+    const headerHeight = header ? header.offsetHeight : 0;
+    const top = el.getBoundingClientRect().top + window.pageYOffset - headerHeight - 8;
+    window.scrollTo({top: top, behavior: 'smooth'});
+    el.classList.add('flash');
+    setTimeout(()=>el.classList.remove('flash'), 600);
+  }
+}
+
+// 折叠/展开字母分组
+function toggleGroup(letter){
+  const group = document.getElementById('letter-'+letter);
+  if(group) group.classList.toggle('collapsed');
 }
 
 // ===== 单词详情 =====
@@ -181,7 +314,8 @@ function toggleMark(word){
   progress[word] = cur==='mastered' ? 'learning' : 'mastered';
   saveProgress(progress);
   document.querySelector('.detail-mask')?.remove();
-  renderHome(currentTopic);
+  if(currentView==='list') showWordList(currentTopic);
+  else renderHome();
   toast(progress[word]==='mastered'?'已标记为掌握':'已取消掌握');
 }
 
@@ -376,7 +510,8 @@ function next(){
 
 function quitStudy(){
   study = null;
-  renderHome(currentTopic);
+  if(currentView==='list') showWordList(currentTopic);
+  else renderHome();
 }
 
 function renderDone(){
@@ -399,13 +534,12 @@ function renderDone(){
 }
 
 // ===== 状态 =====
-let currentTopic = 'all';
-function filterTopic(t){ currentTopic = t; renderHome(t); }
-function showList(){ document.querySelector('.topic-bar')?.scrollIntoView({behavior:'smooth'}); }
+// currentView, currentTopic 已在 renderHome 上方定义
 
 // ===== 暴露接口 =====
 window.__app = {
-  renderHome, showList, filterTopic, showDetail, toggleMark, speak,
+  renderHome, showWordList, searchWords, scrollToLetter, toggleGroup,
+  showDetail, toggleMark, speak,
   startStudy, answer, checkSpell, next, quitStudy
 };
 
