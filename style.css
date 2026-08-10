@@ -23,7 +23,7 @@ body{
   line-height:1.6;
   overflow-x:hidden;
 }
-#app{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;padding-bottom:calc(20px + env(safe-area-inset-bottom));overflow-x:hidden;}
+#app{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;background:var(--bg);position:relative;padding-bottom:calc(20px + env(safe-area-inset-bottom));overflow-x:hidden;}
 
 /* 顶部标题栏 */
 .topbar{
@@ -236,7 +236,7 @@ body{
 .letter-group .lg-words{padding-top:2px;}
 
 /* ===== 学习模式页面 ===== */
-.study-page{min-height:100vh;display:flex;flex-direction:column;}
+.study-page{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
 .study-header{
   background:#fff;
   padding:14px 16px;
@@ -251,7 +251,7 @@ body{
 .study-header .pb .pfill{height:100%;background:var(--green);border-radius:4px;transition:width .3s;}
 .study-header .quit{font-size:13px;color:var(--text-sub);cursor:pointer;}
 
-.study-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 20px;}
+.study-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px 80px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .q-emoji{font-size:80px;margin-bottom:20px;}
 .q-word{font-size:32px;font-weight:800;margin-bottom:6px;}
 .q-ph{font-size:16px;color:var(--text-sub);margin-bottom:8px;}
@@ -323,7 +323,7 @@ body{
 .btn-next.hide{display:none;}
 
 /* 完成页 */
-.done-page{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:30px;text-align:center;}
+.done-page{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;padding:30px;text-align:center;}
 .done-emoji{font-size:80px;margin-bottom:20px;}
 .done-title{font-size:24px;font-weight:800;margin-bottom:8px;}
 .done-sub{font-size:14px;color:var(--text-sub);margin-bottom:24px;}
