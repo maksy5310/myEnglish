@@ -24,12 +24,50 @@ function stats(){
     percent: Math.round(mastered/WORDS.length*100)};
 }
 
-// ===== 朗读 =====
+// ===== 朗读（优化：自动选择最自然的英语语音）=====
+let _voices = [];
+let _bestVoice = null;
+
+function loadVoices(){
+  if(!('speechSynthesis' in window)) return;
+  _voices = speechSynthesis.getVoices();
+  // 优选自然发音的英语语音（按优先级排序）
+  const preferred = [
+    'Google US English',
+    'Samantha',
+    'Google UK English Female',
+    'Microsoft Aria Online (Natural) - English (United States)',
+    'Microsoft Jenny Online (Natural) - English (United States)',
+    'Microsoft Zira',
+    'Daniel',
+    'Karen'
+  ];
+  for(const name of preferred){
+    const v = _voices.find(v => v.name === name);
+    if(v){ _bestVoice = v; break; }
+  }
+  if(!_bestVoice){
+    _bestVoice = _voices.find(v => v.lang && v.lang.startsWith('en'));
+  }
+}
+
+if('speechSynthesis' in window){
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
+
 function speak(text){
   if('speechSynthesis' in window){
+    if(!_bestVoice) loadVoices();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'en-US';
-    u.rate = 0.9;
+    u.rate = 0.95;
+    u.pitch = 1.0;
+    u.volume = 1.0;
+    if(_bestVoice){
+      u.voice = _bestVoice;
+      u.lang = _bestVoice.lang;
+    }
     speechSynthesis.cancel();
     speechSynthesis.speak(u);
   }
