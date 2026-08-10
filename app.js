@@ -52,7 +52,7 @@ function renderHome(filterTopic='all'){
   <div class="topbar">
     <div>
       <div class="title"><span class="logo">🌿</span>百词斩 KET</div>
-      <div class="sub">2025官方词汇表 · ${WORDS.length}词 · ${s.fullCount}词有完整释义</div>
+      <div class="sub">2025官方词汇表 · ${WORDS.length}词 · 全部有中文释义</div>
     </div>
     <div style="font-size:28px;cursor:pointer" onclick="window.__app.showList()">📚</div>
   </div>
