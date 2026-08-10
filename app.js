@@ -1,27 +1,116 @@
 /* ===== 百词斩 KET 词汇 - 交互逻辑 ===== */
 (function(){
 const app = document.getElementById('app');
-const STORAGE_KEY = 'ket_vocab_progress_v1';
+const STORAGE_KEY = 'ket_vocab_progress_v2';
+const DAY = 24*60*60*1000;
 
-// ===== 进度管理 =====
+// ===== 进度管理（SM-2 间隔重复算法）=====
 function loadProgress(){
-  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }catch(e){ return {}; }
+  try{
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    return migrateProgress(raw);
+  }catch(e){ return {}; }
+}
+// 兼容旧格式迁移
+function migrateProgress(raw){
+  const migrated = {};
+  for(const [word, val] of Object.entries(raw)){
+    if(typeof val === 'string'){
+      // 旧格式：'new'|'learning'|'mastered'
+      const now = Date.now();
+      migrated[word] = {
+        interval: val==='mastered' ? 16 : 0,
+        repetitions: val==='mastered' ? 5 : 0,
+        easeFactor: 2.5,
+        nextReview: val==='mastered' ? now+16*DAY : 0,
+        lastReview: 0,
+        wrongCount: 0,
+        rightCount: 0,
+        stage: val==='mastered' ? 3 : 0
+      };
+    } else {
+      migrated[word] = val;
+    }
+  }
+  return migrated;
 }
 function saveProgress(p){ localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }
-let progress = loadProgress(); // { word: 'new'|'learning'|'mastered', correct:0, wrong:0 }
+let progress = loadProgress();
+
+// ===== SM-2 间隔重复算法 =====
+// quality: 0=答错, 1=答对
+function updateSM2(word, quality){
+  const now = Date.now();
+  let p = progress[word] || {interval:0, repetitions:0, easeFactor:2.5, nextReview:0, lastReview:0, wrongCount:0, rightCount:0, stage:0};
+
+  if(quality === 1){
+    p.rightCount++;
+    if(p.repetitions === 0) p.interval = 1;
+    else if(p.repetitions === 1) p.interval = 3;
+    else p.interval = Math.round(p.interval * p.easeFactor);
+    p.repetitions++;
+  } else {
+    p.wrongCount++;
+    p.repetitions = 0;
+    p.interval = 1;
+    p.easeFactor = Math.max(1.3, p.easeFactor - 0.2);
+  }
+  p.lastReview = now;
+  p.nextReview = now + p.interval * DAY;
+  progress[word] = p;
+  saveProgress(progress);
+}
+
+// 获取今日学习计划
+function getTodayPlan(){
+  const now = Date.now();
+  // 到期复习的词
+  const review = WORDS.filter(w => {
+    const p = progress[w.word];
+    return p && p.nextReview > 0 && p.nextReview <= now;
+  });
+  // 新词（未学过的），每次5个
+  const newWords = WORDS.filter(w => !progress[w.word]).slice(0, 5);
+  // 错词（答错次数>0，不在复习队列）
+  const reviewSet = new Set(review.map(w=>w.word));
+  const wrong = WORDS.filter(w => {
+    const p = progress[w.word];
+    return p && p.wrongCount > 0 && !reviewSet.has(w.word);
+  });
+  return { review, newWords, wrong, total: review.length + newWords.length + (wrong.length>3?3:wrong.length) };
+}
+
+// 判断单词掌握状态（用于显示）
+function getWordStatus(word){
+  const p = progress[word];
+  if(!p) return 'new';
+  if(p.stage >= 3 && p.repetitions >= 3) return 'mastered';
+  if(p.lastReview > 0) return 'learning';
+  return 'new';
+}
 
 function stats(){
   let mastered=0, learning=0, news=0;
   WORDS.forEach(w=>{
-    const s = progress[w.word] || 'new';
-    if(s==='mastered') mastered++;
-    else if(s==='learning') learning++;
+    const st = getWordStatus(w.word);
+    if(st==='mastered') mastered++;
+    else if(st==='learning') learning++;
     else news++;
   });
   const fullCount = WORDS.filter(w=>w.phonetic && w.example && w.exampleCn && w.meaning).length;
+  const plan = getTodayPlan();
+  const wrongCount = WORDS.filter(w => {
+    const p = progress[w.word];
+    return p && p.wrongCount > 0;
+  }).length;
   return {mastered, learning, news, total:WORDS.length,
     fullCount,
-    percent: Math.round(mastered/WORDS.length*100)};
+    percent: Math.round(mastered/WORDS.length*100),
+    todayReview: plan.review.length,
+    todayNew: plan.newWords.length,
+    todayWrong: plan.wrong.length,
+    todayTotal: plan.total,
+    wrongCount};
 }
 
 // ===== 朗读（优化：自动选择最自然的英语语音）=====
@@ -113,6 +202,38 @@ function renderHome(){
     </div>
   </div>
 
+  <!-- 今日学习大按钮 -->
+  <div class="daily-study" onclick="window.__app.startDailyStudy()">
+    <div class="ds-left">
+      <div class="ds-icon">📚</div>
+      <div class="ds-info">
+        <div class="ds-title">今日学习</div>
+        <div class="ds-detail">${s.todayReview} 复习 · ${s.todayNew} 新词${s.todayWrong>0?` · ${Math.min(s.todayWrong,3)} 错词`:''}</div>
+      </div>
+    </div>
+    <div class="ds-go">开始 ›</div>
+  </div>
+
+  <!-- 快捷入口 -->
+  <div class="quick-grid">
+    <div class="quick-card" onclick="window.__app.showWrongBook()">
+      <div class="qc-num ${s.wrongCount>0?'has':''}">${s.wrongCount}</div>
+      <div class="qc-label">错词本</div>
+    </div>
+    <div class="quick-card" onclick="window.__app.showWordList('all')">
+      <div class="qc-num">${WORDS.length}</div>
+      <div class="qc-label">全部单词</div>
+    </div>
+    <div class="quick-card" onclick="window.__app.startStudy('select')">
+      <div class="qc-num">📖</div>
+      <div class="qc-label">看词选义</div>
+    </div>
+    <div class="quick-card" onclick="window.__app.startStudy('spell')">
+      <div class="qc-num">✏️</div>
+      <div class="qc-label">拼写测试</div>
+    </div>
+  </div>
+
   <div class="overview">
     <div class="row">
       <div class="stat"><div class="num">${s.mastered}</div><div class="lbl">已掌握</div></div>
@@ -123,7 +244,7 @@ function renderHome(){
     <div class="ptxt">学习进度 ${s.percent}% · 加油！</div>
   </div>
 
-  <div class="section-title">🎯 学习模式</div>
+  <div class="section-title">🎯 自由练习</div>
   <div class="mode-grid">
     <div class="mode-card m1" onclick="window.__app.startStudy('select')">
       <div class="ic">📖</div><div class="name">看词选义</div><div class="desc">看英文选中文</div>
@@ -194,7 +315,7 @@ function showWordList(topic){
             <div class="lg-title" onclick="window.__app.toggleGroup('${l}')">${l} <span class="lg-count">${groups[l].length}</span></div>
             <div class="lg-words">
               ${groups[l].map(w=>{
-                const st = progress[w.word] || 'new';
+                const st = getWordStatus(w.word);
                 const stTxt = st==='new'?'未学':st==='learning'?'学习中':'已掌握';
                 const meanTxt = w.meaning ? `${w.pos} ${w.meaning}` : `${w.pos}`;
                 return `<div class="word-item" onclick="window.__app.showDetail('${w.word}')">
@@ -250,7 +371,7 @@ function searchWords(q){
     return;
   }
   container.innerHTML = filtered.map(w=>{
-    const st = progress[w.word] || 'new';
+    const st = getWordStatus(w.word);
     const stTxt = st==='new'?'未学':st==='learning'?'学习中':'已掌握';
     const meanTxt = w.meaning ? `${w.pos} ${w.meaning}` : `${w.pos}`;
     return `<div class="word-item" onclick="window.__app.showDetail('${w.word}')">
@@ -287,7 +408,7 @@ function toggleGroup(letter){
 function showDetail(word){
   const w = WORDS.find(x=>x.word===word);
   if(!w) return;
-  const st = progress[w.word] || 'new';
+  const st = getWordStatus(w.word);
   const phHtml = w.phonetic ? `${w.phonetic} <span style="cursor:pointer;color:var(--blue)" onclick="window.__app.speak('${w.word}')">🔊</span>` : `<span style="cursor:pointer;color:var(--blue)" onclick="window.__app.speak('${w.word}')">🔊 点击朗读</span>`;
   const meanHtml = w.meaning ? `<div class="ds-mean">${w.meaning}</div>` : `<div class="ds-mean" style="color:var(--text-sub);font-size:14px">释义待补充</div>`;
   const exHtml = w.example ? `<div class="ds-ex"><div class="en">${w.example} <span class="speak" onclick="window.__app.speak('${w.example}')">🔊</span></div><div class="cn">${w.exampleCn}</div></div>` : '';
@@ -310,35 +431,68 @@ function showDetail(word){
 }
 
 function toggleMark(word){
-  const cur = progress[word] || 'new';
-  progress[word] = cur==='mastered' ? 'learning' : 'mastered';
+  const cur = getWordStatus(word);
+  const now = Date.now();
+  if(cur==='mastered'){
+    // 取消掌握
+    const p = progress[word];
+    if(p){ p.stage = 0; p.repetitions = 0; p.nextReview = 0; }
+  } else {
+    // 标记掌握
+    progress[word] = Object.assign(progress[word]||{}, {
+      stage:3, repetitions:5, easeFactor:2.5,
+      lastReview:now, nextReview:now+16*DAY,
+      rightCount:(progress[word]?.rightCount||0)+1
+    });
+  }
   saveProgress(progress);
   document.querySelector('.detail-mask')?.remove();
   if(currentView==='list') showWordList(currentTopic);
+  else if(currentView==='wrong') showWrongBook();
   else renderHome();
-  toast(progress[word]==='mastered'?'已标记为掌握':'已取消掌握');
+  toast(getWordStatus(word)==='mastered'?'已标记为掌握':'已取消掌握');
 }
 
 // ===== 学习模式 =====
-let study = null; // {mode, queue, idx, correct, wrong, answered}
+let study = null; // {mode, queue, idx, correct, wrong, answered, isDaily}
 
-function startStudy(mode){
-  // 看词选义和看图选词需要有释义的词
-  const needMeaning = (mode==='select' || mode==='emoji');
-  let pool;
-  if(needMeaning){
-    // 只用有释义的词
-    pool = WORDS.filter(w=> w.meaning && w.meaning.length>0);
-  } else {
-    pool = WORDS.slice();
+// 每日学习（组合学习链路：新词递进 + 复习 + 错词）
+function startDailyStudy(){
+  const plan = getTodayPlan();
+  if(plan.total === 0){
+    toast('今日学习已完成！明天再来吧 🎉');
+    return;
   }
-  // 优先学习未掌握的词
-  const queue = pool.filter(w=> (progress[w.word]||'new')!=='mastered');
+  const queue = [
+    ...plan.review,
+    ...plan.newWords,
+    ...plan.wrong.slice(0, 3)
+  ];
+  shuffle(queue);
+  study = {mode:'daily', queue, idx:0, correct:0, wrong:0, answered:false, isDaily:true};
+  renderStudy();
+}
+
+// 自由练习
+function startStudy(mode){
+  const needMeaning = (mode==='select' || mode==='emoji');
+  let pool = needMeaning ? WORDS.filter(w=> w.meaning && w.meaning.length>0) : WORDS.slice();
+  const queue = pool.filter(w=> getWordStatus(w.word)!=='mastered');
   const finalPool = queue.length ? queue : pool;
   shuffle(finalPool);
   const session = finalPool.slice(0, Math.min(20, finalPool.length));
   if(!session.length){ toast('没有可学习的单词'); return; }
-  study = {mode, queue:session, idx:0, correct:0, wrong:0, answered:false};
+  study = {mode, queue:session, idx:0, correct:0, wrong:0, answered:false, isDaily:false};
+  renderStudy();
+}
+
+// 错词练习
+function startWrongStudy(){
+  const wrongWords = WORDS.filter(w => progress[w.word] && progress[w.word].wrongCount > 0);
+  if(!wrongWords.length){ toast('没有错词'); return; }
+  shuffle(wrongWords);
+  const session = wrongWords.slice(0, Math.min(20, wrongWords.length));
+  study = {mode:'select', queue:session, idx:0, correct:0, wrong:0, answered:false, isDaily:false};
   renderStudy();
 }
 
@@ -351,14 +505,10 @@ function shuffle(arr){
 
 // 生成干扰选项
 function makeOptions(correct, key, count=4){
-  // 看词选义模式：干扰项也必须有释义
   const needMeaning = key==='meaning';
-  let others;
-  if(needMeaning){
-    others = WORDS.filter(w=>w.word!==correct.word && w.meaning && w.meaning.length>0);
-  } else {
-    others = WORDS.filter(w=>w.word!==correct.word);
-  }
+  let others = needMeaning
+    ? WORDS.filter(w=>w.word!==correct.word && w.meaning && w.meaning.length>0)
+    : WORDS.filter(w=>w.word!==correct.word);
   shuffle(others);
   const opts = [correct, ...others.slice(0,count-1)];
   shuffle(opts);
@@ -372,33 +522,56 @@ function renderStudy(){
   const pct = Math.round(study.idx/study.queue.length*100);
   study.answered = false;
 
+  // 每日学习模式：根据词的阶段决定出题方式
+  let mode = study.mode;
+  if(study.isDaily){
+    const p = progress[w.word];
+    const stage = p ? p.stage : 0;
+    if(stage < 3){
+      mode = stage===0 ? 'select' : stage===1 ? 'listen' : 'spell';
+    } else {
+      mode = ['select','listen','spell'][Math.floor(Math.random()*3)];
+    }
+  }
+  study.currentMode = mode;
+
+  // 阶段提示（每日学习模式）
+  let stageHint = '';
+  if(study.isDaily){
+    const p = progress[w.word];
+    const stage = p ? p.stage : 0;
+    const stageNames = ['第1步：认词','第2步：听音','第3步：拼写'];
+    if(stage < 3) stageHint = `<div class="stage-hint">${stageNames[stage]}</div>`;
+    else stageHint = `<div class="stage-hint">复习</div>`;
+  }
+
   let body='';
-  if(study.mode==='select'){
-    // 看词选义：显示单词，选中文
+  if(mode==='select'){
     const opts = makeOptions(w,'meaning');
     body = `
+      ${stageHint}
       <div class="q-emoji">${w.emoji}</div>
       <div class="q-word">${w.word} <span style="cursor:pointer;font-size:20px" onclick="window.__app.speak('${w.word}')">🔊</span></div>
-      <div class="q-ph">${w.phonetic}</div>
+      <div class="q-ph">${w.phonetic||''}</div>
       <span class="q-pos">${w.pos}</span>
       <div class="q-prompt">请选择正确的中文释义</div>
       <div class="options" id="opts">
-        ${opts.map((o,i)=>`<div class="opt" data-v="${o.meaning}" data-correct="${o.word===w.word}" onclick="window.__app.answer(this,'${w.word}')">${o.meaning}</div>`).join('')}
+        ${opts.map(o=>`<div class="opt" data-correct="${o.word===w.word}" onclick="window.__app.answer(this,'${w.word}')">${o.meaning}</div>`).join('')}
       </div>`;
-  } else if(study.mode==='listen'){
-    // 听音选词：播放发音，选单词
+  } else if(mode==='listen'){
     const opts = makeOptions(w,'word');
     body = `
+      ${stageHint}
       <button class="audio-big" onclick="window.__app.speak('${w.word}')">🔊</button>
       <div class="q-prompt">点击播放发音，选择对应单词</div>
       <div class="options" id="opts">
-        ${opts.map((o,i)=>`<div class="opt" data-correct="${o.word===w.word}" onclick="window.__app.answer(this,'${w.word}')">${o.word}</div>`).join('')}
+        ${opts.map(o=>`<div class="opt" data-correct="${o.word===w.word}" onclick="window.__app.answer(this,'${w.word}')">${o.word}</div>`).join('')}
       </div>`;
     setTimeout(()=>speak(w.word), 300);
-  } else if(study.mode==='spell'){
-    // 拼写测试：根据释义拼写
+  } else if(mode==='spell'){
     const hint = w.meaning ? w.meaning : `（${w.pos}）听音拼写`;
     body = `
+      ${stageHint}
       <div class="q-emoji">${w.emoji}</div>
       <div class="q-ph">${w.phonetic||''} <span style="cursor:pointer;color:var(--blue)" onclick="window.__app.speak('${w.word}')">🔊</span></div>
       <span class="q-pos">${w.pos}</span>
@@ -407,14 +580,14 @@ function renderStudy(){
       <input class="spell-input" id="spellInput" placeholder="输入英文..." autocomplete="off" autocapitalize="off">
       <button class="spell-btn" onclick="window.__app.checkSpell('${w.word}')">确 定</button>
     `;
-  } else if(study.mode==='emoji'){
-    // 看图选词：显示emoji，选单词
+  } else if(mode==='emoji'){
     const opts = makeOptions(w,'word');
     body = `
+      ${stageHint}
       <div class="q-emoji">${w.emoji}</div>
       <div class="q-prompt">看图标，选择对应的单词</div>
       <div class="options" id="opts">
-        ${opts.map((o,i)=>`<div class="opt" data-correct="${o.word===w.word}" onclick="window.__app.answer(this,'${w.word}')">${o.word}</div>`).join('')}
+        ${opts.map(o=>`<div class="opt" data-correct="${o.word===w.word}" onclick="window.__app.answer(this,'${w.word}')">${o.word}</div>`).join('')}
       </div>`;
   }
 
@@ -434,7 +607,7 @@ function renderStudy(){
       </div>
     </div>
   `;
-  if(study.mode==='spell'){
+  if(mode==='spell'){
     setTimeout(()=>document.getElementById('spellInput')?.focus(), 100);
     document.getElementById('spellInput')?.addEventListener('keydown',e=>{
       if(e.key==='Enter') window.__app.checkSpell(w.word);
@@ -447,8 +620,7 @@ function answer(el, word){
   if(study.answered) return;
   study.answered = true;
   const isCorrect = el.dataset.correct==='true';
-  const opts = document.querySelectorAll('.opt');
-  opts.forEach(o=>{
+  document.querySelectorAll('.opt').forEach(o=>{
     o.classList.add('disabled');
     if(o.dataset.correct==='true') o.classList.add('correct');
   });
@@ -466,8 +638,7 @@ function checkSpell(word){
   const isCorrect = val === word.toLowerCase();
   study.answered = true;
   if(isCorrect){ input.style.borderColor='var(--green)'; input.style.background='var(--green-light)'; }
-  else { input.style.borderColor='var(--red)'; input.style.background='#FFF5F5';
-    toast('正确：'+word); }
+  else { input.style.borderColor='var(--red)'; input.style.background='#FFF5F5'; toast('正确：'+word); }
   recordResult(word, isCorrect);
   showResultCard(word, isCorrect);
   document.getElementById('nextBtn').classList.remove('hide');
@@ -478,7 +649,7 @@ function showResultCard(word, isCorrect){
   const body = document.getElementById('studyBody');
   const card = document.createElement('div');
   card.className='result-card';
-  const meanLine = w.meaning ? `${w.pos} ${w.meaning}` : `${w.pos} · 释义待补充`;
+  const meanLine = w.meaning ? `${w.pos} ${w.meaning}` : `${w.pos}`;
   const exLine = w.example ? `<div class="rc-ex" style="background:var(--bg);padding:10px;border-radius:8px;margin-top:8px"><div class="en">${w.example} <span class="speak" onclick="window.__app.speak('${w.example}')">🔊</span></div><div class="cn">${w.exampleCn}</div></div>` : '';
   card.innerHTML=`
     <div class="rc-tag">${isCorrect?'✅ 答对了！':'❌ 答错了'}</div>
@@ -489,18 +660,18 @@ function showResultCard(word, isCorrect){
   body.appendChild(card);
 }
 
+// 记录答题结果（SM-2 算法 + 组合链路阶段）
 function recordResult(word, isCorrect){
   if(isCorrect){
     study.correct++;
-    // 连续答对2次变掌握
-    const cur = progress[word] || 'new';
-    if(cur==='learning') progress[word]='mastered';
-    else if(cur==='new') progress[word]='learning';
+    updateSM2(word, 1);
+    // 组合链路：答对则 stage++
+    const p = progress[word];
+    if(p && p.stage < 3){ p.stage++; saveProgress(progress); }
   } else {
     study.wrong++;
-    progress[word]='learning';
+    updateSM2(word, 0);
   }
-  saveProgress(progress);
 }
 
 function next(){
@@ -511,6 +682,7 @@ function next(){
 function quitStudy(){
   study = null;
   if(currentView==='list') showWordList(currentTopic);
+  else if(currentView==='wrong') showWrongBook();
   else renderHome();
 }
 
@@ -519,18 +691,64 @@ function renderDone(){
   app.innerHTML = `
     <div class="done-page">
       <div class="done-emoji">🎉</div>
-      <div class="done-title">本组学习完成！</div>
+      <div class="done-title">${study.isDaily?'今日学习完成！':'本组练习完成！'}</div>
       <div class="done-sub">本次答对 ${study.correct} 题，答错 ${study.wrong} 题</div>
       <div class="done-stats">
         <div class="ds"><div class="n">${s.mastered}</div><div class="l">已掌握</div></div>
-        <div class="ds"><div class="n">${s.percent}%</div><div class="l">总进度</div></div>
+        <div class="ds"><div class="n">${s.todayReview}</div><div class="l">待复习</div></div>
+        <div class="ds"><div class="n">${s.wrongCount}</div><div class="l">错词本</div></div>
       </div>
       <div style="display:flex;gap:12px">
-        <button class="btn-restart" onclick="window.__app.startStudy('${study.mode}')">再来一组</button>
+        ${study.isDaily
+          ? `<button class="btn-restart" onclick="window.__app.startDailyStudy()">继续学习</button>`
+          : `<button class="btn-restart" onclick="window.__app.startStudy('${study.mode}')">再来一组</button>`
+        }
         <button class="btn-restart" style="background:#fff;color:var(--green);border:2px solid var(--green)" onclick="window.__app.quitStudy()">返回首页</button>
       </div>
     </div>
   `;
+}
+
+// ===== 错词本 =====
+function showWrongBook(){
+  currentView = 'wrong';
+  const wrongWords = WORDS
+    .filter(w => progress[w.word] && progress[w.word].wrongCount > 0)
+    .sort((a,b) => (progress[b.word].wrongCount||0) - (progress[a.word].wrongCount||0));
+
+  let html = `
+  <div class="list-page">
+    <div class="list-header">
+      <div class="lh-top">
+        <div class="back" onclick="window.__app.renderHome()">‹</div>
+        <div class="lh-title">❌ 错词本</div>
+        <div class="lh-count">${wrongWords.length}词</div>
+      </div>
+    </div>
+    <div class="word-groups" style="padding:14px">
+      ${wrongWords.length === 0
+        ? '<div class="empty">🎉 还没有错词，继续保持！</div>'
+        : wrongWords.map(w=>{
+            const p = progress[w.word];
+            const meanTxt = w.meaning ? `${w.pos} ${w.meaning}` : `${w.pos}`;
+            return `<div class="word-item" onclick="window.__app.showDetail('${w.word}')">
+              <div class="emoji">${w.emoji}</div>
+              <div class="info">
+                <div class="w">${w.word} <span class="ph">${w.phonetic||''}</span></div>
+                <div class="m">${meanTxt}</div>
+              </div>
+              <div class="wrong-badge">❌${p.wrongCount}</div>
+            </div>`;
+          }).join('')
+      }
+    </div>
+    ${wrongWords.length > 0
+      ? `<div style="padding:0 14px 20px"><button class="btn-restart" style="width:100%" onclick="window.__app.startWrongStudy()">开始错词练习</button></div>`
+      : ''
+    }
+  </div>
+  `;
+  app.innerHTML = html;
 }
 
 // ===== 状态 =====
@@ -539,6 +757,7 @@ function renderDone(){
 // ===== 暴露接口 =====
 window.__app = {
   renderHome, showWordList, searchWords, scrollToLetter, toggleGroup,
+  showWrongBook, startWrongStudy, startDailyStudy,
   showDetail, toggleMark, speak,
   startStudy, answer, checkSpell, next, quitStudy
 };

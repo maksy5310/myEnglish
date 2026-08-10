@@ -88,6 +88,40 @@ body{
 }
 .topic-chip.active{background:var(--green);color:#fff;}
 
+/* 今日学习大按钮 */
+.daily-study{
+  margin:14px;
+  background:linear-gradient(135deg,var(--green),var(--green-dark));
+  border-radius:var(--radius);
+  padding:18px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  color:#fff;cursor:pointer;
+  box-shadow:0 4px 14px rgba(65,194,141,.3);
+  transition:transform .15s;
+}
+.daily-study:active{transform:scale(.98);}
+.daily-study .ds-left{display:flex;align-items:center;gap:14px;}
+.daily-study .ds-icon{font-size:36px;}
+.daily-study .ds-title{font-size:18px;font-weight:800;}
+.daily-study .ds-detail{font-size:12px;opacity:.9;margin-top:2px;}
+.daily-study .ds-go{font-size:15px;font-weight:600;background:rgba(255,255,255,.25);padding:6px 16px;border-radius:20px;}
+
+/* 快捷入口网格 */
+.quick-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 14px 14px;}
+.quick-card{
+  background:var(--card);
+  border-radius:12px;
+  padding:12px 6px;
+  text-align:center;
+  box-shadow:var(--shadow);
+  cursor:pointer;
+  transition:transform .12s;
+}
+.quick-card:active{transform:scale(.95);}
+.quick-card .qc-num{font-size:20px;font-weight:800;color:var(--text);}
+.quick-card .qc-num.has{color:var(--red);}
+.quick-card .qc-label{font-size:11px;color:var(--text-sub);margin-top:2px;}
+
 /* 主题分类卡片 */
 .topic-card-list{padding:0 14px;}
 .topic-card{
@@ -319,3 +353,17 @@ body{
 .toast.show{opacity:1;}
 
 .empty{text-align:center;padding:60px 20px;color:var(--text-sub);font-size:14px;}
+
+/* 阶段提示（组合学习链路） */
+.stage-hint{
+  font-size:12px;font-weight:600;color:var(--blue);
+  background:#EBF3FD;padding:4px 14px;border-radius:12px;
+  margin-bottom:12px;display:inline-block;
+}
+
+/* 错词徽章 */
+.wrong-badge{
+  font-size:11px;font-weight:700;color:var(--red);
+  background:#FFF5F5;padding:4px 8px;border-radius:10px;
+  flex-shrink:0;
+}
