@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>百词斩 KET 词汇</title>
+
+<!-- PWA 应用清单 -->
+<link rel="manifest" href="manifest.json">
+
+<!-- iOS PWA 配置：全屏模式 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="百词斩KET">
+
+<!-- iOS App 图标 -->
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icon-167.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icon-120.png">
+
+<!-- 主题色 -->
+<meta name="theme-color" content="#41C28D">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="words.js"></script>
+<script src="app.js"></script>
+<!-- 注册 Service Worker 实现离线使用 -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js').then(function(reg) {
+      console.log('Service Worker 注册成功，支持离线使用');
+    }).catch(function(err) {
+      console.log('Service Worker 注册失败:', err);
+    });
+  });
+}
+</script>
+</body>
+</html>

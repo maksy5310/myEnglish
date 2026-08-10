@@ -1,0 +1,13 @@
+# Python 临时文件
+__pycache__/
+*.pyc
+.venv/
+
+# 临时文件
+*.txt
+*.jpg
+*.json.bak
+
+# 系统文件
+.DS_Store
+Thumbs.db
