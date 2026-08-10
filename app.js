@@ -202,7 +202,7 @@ function renderHome(){
     </div>
   </div>
 
-  <!-- 今日学习大按钮 -->
+  <!-- 今日学习大按钮 + 统计 -->
   <div class="daily-study" onclick="window.__app.startDailyStudy()">
     <div class="ds-left">
       <div class="ds-icon">📚</div>
@@ -214,6 +214,17 @@ function renderHome(){
     <div class="ds-go">开始 ›</div>
   </div>
 
+  <!-- 统计概览（紧凑版） -->
+  <div class="overview">
+    <div class="row">
+      <div class="stat"><div class="num">${s.mastered}</div><div class="lbl">已掌握</div></div>
+      <div class="stat"><div class="num">${s.learning}</div><div class="lbl">学习中</div></div>
+      <div class="stat"><div class="num">${s.news}</div><div class="lbl">未学习</div></div>
+    </div>
+    <div class="progress-bar"><div class="fill" style="width:${s.percent}%"></div></div>
+    <div class="ptxt">学习进度 ${s.percent}% · 加油！</div>
+  </div>
+
   <!-- 快捷入口 -->
   <div class="quick-grid">
     <div class="quick-card" onclick="window.__app.showWrongBook()">
@@ -221,7 +232,7 @@ function renderHome(){
       <div class="qc-label">错词本</div>
     </div>
     <div class="quick-card" onclick="window.__app.showWordList('all')">
-      <div class="qc-num">${WORDS.length}</div>
+      <div class="qc-num">📖</div>
       <div class="qc-label">全部单词</div>
     </div>
     <div class="quick-card" onclick="window.__app.startStudy('select')">
@@ -232,16 +243,6 @@ function renderHome(){
       <div class="qc-num">✏️</div>
       <div class="qc-label">拼写测试</div>
     </div>
-  </div>
-
-  <div class="overview">
-    <div class="row">
-      <div class="stat"><div class="num">${s.mastered}</div><div class="lbl">已掌握</div></div>
-      <div class="stat"><div class="num">${s.learning}</div><div class="lbl">学习中</div></div>
-      <div class="stat"><div class="num">${s.news}</div><div class="lbl">未学习</div></div>
-    </div>
-    <div class="progress-bar"><div class="fill" style="width:${s.percent}%"></div></div>
-    <div class="ptxt">学习进度 ${s.percent}% · 加油！</div>
   </div>
 
   <div class="section-title">🎯 自由练习</div>

@@ -1,5 +1,5 @@
 // 百词斩 KET 词汇 - Service Worker (离线缓存)
-const CACHE_NAME = 'ket-vocab-v6';
+const CACHE_NAME = 'ket-vocab-v7';
 const ASSETS = [
   './',
   './index.html',

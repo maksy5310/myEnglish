@@ -15,13 +15,15 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;}
+html{overflow-x:hidden;}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
   background:var(--bg);
   color:var(--text);
   line-height:1.6;
+  overflow-x:hidden;
 }
-#app{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;padding-bottom:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom));}
+#app{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;padding-bottom:calc(20px + env(safe-area-inset-bottom));overflow-x:hidden;}
 
 /* 顶部标题栏 */
 .topbar{
@@ -212,7 +214,7 @@ body{
 }
 .letter-index .li-item:active{transform:scale(1.3);color:var(--green-dark);}
 
-.word-groups{flex:1;padding:0 14px 20px;}
+.word-groups{flex:1;padding:0 30px 20px 14px;}
 .letter-group{margin-bottom:6px;}
 .letter-group .lg-title{
   font-size:14px;font-weight:800;color:var(--green-dark);
