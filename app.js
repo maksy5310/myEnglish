@@ -490,7 +490,7 @@ function startStudy(mode){
 // 错词练习
 function startWrongStudy(){
   const wrongWords = WORDS.filter(w => progress[w.word] && progress[w.word].wrongCount > 0);
-  if(!wrongWords.length){ toast('没有错词'); return; }
+  if(!wrongWords.length){ toast('没有错词'); study = null; return; }
   shuffle(wrongWords);
   const session = wrongWords.slice(0, Math.min(20, wrongWords.length));
   study = {mode:'select', queue:session, idx:0, correct:0, wrong:0, answered:false, isDaily:false};
@@ -760,7 +760,16 @@ window.__app = {
   renderHome, showWordList, searchWords, scrollToLetter, toggleGroup,
   showWrongBook, startWrongStudy, startDailyStudy,
   showDetail, toggleMark, speak,
-  startStudy, answer, checkSpell, next, quitStudy
+  startStudy, answer, checkSpell, next, quitStudy,
+  // 单元测试专用接口
+  __test: {
+    updateSM2, getTodayPlan, getWordStatus, stats, migrateProgress,
+    loadProgress, saveProgress, groupByLetter, shuffle,
+    get progress(){ return progress; },
+    set progress(v){ progress = v; },
+    get study(){ return study; },
+    resetProgress: () => { progress = {}; localStorage.removeItem(STORAGE_KEY); }
+  }
 };
 
 // 初始渲染
